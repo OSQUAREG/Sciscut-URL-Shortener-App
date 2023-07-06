@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %} {{ title }} {% endblock title %}
+{% block content %}
+
+{% for message in get_flashed_messages() %}
+<div class="container alert alert-warning alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+
+<div class="container mb-3 form-group">
+    <h2 style="font-weight:bold">Sign Up</h2>
+    <small class="text-danger">* indicates Required</small>
+    <br>
+    <form class="row g-3" action="{{ url_for('auth.signup') }}" method="POST">
+        <div class="row">{{ form.hidden_tag() }}</div>
+        <div class="col-md-12">
+            {{ form.email.label(class="form-label", style="font-weight:bold; font-size:18px") }}
+            <span class="text-danger">*</span>
+            {{ form.email(class="form-control shadow p-2 mb-3 bg-body rounded border border-primary") }}
+            {% for error in form.email.errors %}
+            <small class="text-danger">{{ error }}</small>
+            {% endfor %}
+        </div>
+        <div class="col-md-12">
+            {{ form.password.label(class="form-label", style="font-weight:bold; font-size:18px") }}
+            <span class="text-danger">*</span>
+            {{ form.password(class="form-control shadow p-2 mb-3 bg-body rounded border border-primary") }}
+            {% for error in form.password.errors %}
+            <small class="text-danger">{{ error }}</small>
+            {% endfor %}
+        </div>
+        <div class="col-md-12">
+            {{ form.confirm_password.label(class="form-label", style="font-weight:bold; font-size:18px") }}
+            <span class="text-danger">*</span>
+            {{ form.confirm_password(class="form-control shadow p-2 mb-3 bg-body rounded border border-primary") }}
+            {% for error in form.confirm_password.errors %}
+            <small class="text-danger">{{ error }}</small>
+            {% endfor %}
+        </div>
+        <div class="d-grid gap-2 col-3 mx-auto">
+            {{ form.submit(class="btn btn btn-outline-primary", style="font-weight:bold; font-size:18px") }}
+        </div>
+        <div class="form-group text-center">
+            <small>
+                Already have an account? <a href="{{url_for('auth.login')}}"
+                    style="text-decoration:none"><strong>Login</strong></a>
+            </small>
+        </div>
+    </form>
+</div>
+
+{% endblock %}

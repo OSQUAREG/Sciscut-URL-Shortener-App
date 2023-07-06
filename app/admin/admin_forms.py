@@ -5,12 +5,16 @@ from ..utils import db
 from ..models import User
 
 
-class LoginForm(FlaskForm):
+class AdminLoginForm(FlaskForm):
     email = StringField(validators=[validators.InputRequired()])
     password = PasswordField(validators=[validators.InputRequired()])
 
     def get_user(self):
-        return db.session.query(User).filter_by(email=self.email.data, is_admin=True).first()
+        return (
+            db.session.query(User)
+            .filter_by(email=self.email.data, is_admin=True)
+            .first()
+        )
 
     def validate_login(self, field):
         user = self.get_user()
@@ -22,7 +26,7 @@ class LoginForm(FlaskForm):
             raise validators.ValidationError("Invalid password")
 
 
-class RegistrationForm(FlaskForm):
+class AdminRegistrationForm(FlaskForm):
     email = StringField(label="Email", validators=[validators.InputRequired()])
     password = PasswordField(validators=[validators.InputRequired()])
 

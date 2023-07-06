@@ -1,7 +1,6 @@
 import os
 from http import HTTPStatus
-from flask import Flask, jsonify, render_template, send_from_directory
-from flask_restx import Api
+from flask import Flask, jsonify, render_template, Blueprint
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 from .blocklist import BLOCKLIST
@@ -14,9 +13,10 @@ from .utils.create_defaults import (
     qr_code_folder_path,
 )
 from .config.config import config_dict
-from .views.auth import auth_ns
-from .views.user import user_ns
-from .views.link import links_ns
+from .views.auth import auth_bp
+
+# from .views.user import user_ns
+# from .views.link import links_ns
 
 # from .views.admin import admin_links_ns, admin_users_ns
 from flask_login import LoginManager
@@ -31,7 +31,7 @@ qr_code_folder_path = config("QR_CODE_FOLDER_PATH")
 
 
 def create_app(config=config_dict["dev"]):
-    app = Flask(__name__, static_url_path="/", static_folder="./client/public")
+    app = Flask(__name__)
     app.config.from_object(config)
     db.init_app(app)
     cache.init_app(app)
@@ -42,7 +42,7 @@ def create_app(config=config_dict["dev"]):
     app.config["FLASK_ADMIN_SWATCH"] = "united"
     admin = Admin(
         app,
-        name="Admin: Sciscut-URL Shortener API",
+        name="Admin: Sciscut-URL Shortener App",
         template_mode="bootstrap3",
         index_view=MyAdminIndexView(),
         base_template="my_master.html",
@@ -56,7 +56,7 @@ def create_app(config=config_dict["dev"]):
     # Initialize flask-migrate
     migrate = Migrate(app, db)
 
-    # Initialize flask-jwt
+    # # Initialize flask-jwt
     jwt = JWTManager(app)
 
     @jwt.user_lookup_loader
@@ -90,53 +90,20 @@ def create_app(config=config_dict["dev"]):
             return HTTPStatus.UNAUTHORIZED
         return db.session.query(User).get(user_id)
 
-    authorizations = {
-        "Bearer Auth": {
-            "type": "apiKey",
-            "in": "header",
-            "name": "Authorization",
-            "description": "Add a JWT token to the header with: <Bearer {JWT token}> to authorize.",
-        }
-    }
+    app.register_blueprint(auth_bp, url_prefix="/")
 
-    api = Api(
-        app=app,
-        title="Sciscut - URL Shortener API",
-        description="This is a URL Shortener API build with Flask RESTX in Python.",
-        version="1.0",
-        authorizations=authorizations,
-        security="Bearer Auth",
-        errors=Flask.errorhandler,
-    )
-
-    api.add_namespace(auth_ns, path="/auth")
-    api.add_namespace(user_ns, path="/user")
-    api.add_namespace(links_ns, path="/links")
-    # api.add_namespace(admin_users_ns, path="/admin/users")
-    # api.add_namespace(admin_links_ns, path="/admin/links")
-
-    @app.route("/")
-    def index():
-        return app.send_static_file("index.html")
-
-    # Serve the QR code image
-    @app.route("/api/qr-code/<qr_code_id>")
-    def serve_qr_code(qr_code_id):
-        qr_code_path = os.path.join(qr_code_folder_path, f"{qr_code_id}.png")
-        print("\n\nqr_code_folder_path", qr_code_folder_path)
-        print("\n\nqr_code_path", qr_code_path)
-        return send_from_directory(qr_code_folder_path, f"{qr_code_id}.png")
-
+    # CUSTOM ERROR HANDLERS
     @app.errorhandler(404)
-    def not_found(error):
-        return app.send_static_file("index.html")
+    def not_found_error(error):
+        return render_template("404.html"), 404
 
     @app.errorhandler(500)
-    def server_error(error):
-        return app.send_static_file("index.html")
+    def internal_error(error):
+        db.session.rollback()
+        return render_template("500.html"), 500
 
     @app.route("/home")
-    def home():
+    def index():
         return render_template("index.html")
 
     # Flask Admin Views

@@ -1,4 +1,6 @@
-from flask_restx import Resource, abort
+from ..webforms import SignupForm, LoginForm
+from flask import flash, redirect, url_for, render_template, request
+from flask_login import login_user, current_user
 from ..blocklist import BLOCKLIST
 from ..models import User
 from ..utils import cache, limiter
@@ -10,98 +12,82 @@ from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
 )
-from ..serializers.user import user_model, user_response_model, user_resp_logged_model
-from ..views import auth_ns
+from ..views import auth_bp
 from http import HTTPStatus
 
 
-@auth_ns.route("/signup")
-class UserSignup(Resource):
-    @limiter.limit("10/minute")
-    @auth_ns.expect(user_model)
-    @auth_ns.marshal_with(user_response_model)
-    def post(self):
-        """Sign up a User"""
-        data = auth_ns.payload
-        email = data.get("email")
-        password = data.get("password")
-
-        # Checking if email already existsz
-        email_exist = User.query.filter_by(email=email).first()
-        if email_exist:
-            abort(HTTPStatus.CONFLICT, "Email already in use")
-        if len(password) < 8:
-            abort(HTTPStatus.BAD_REQUEST, "Password must be at least 8 characters")
-
-        new_user = User(email=email, password_hash=generate_password_hash(password))
-        new_user.save_to_db()
-
-        message = (
-            f"New User '{new_user.username}' signed up successfully. Please login."
-        )
-        response = {"message": message, "data": new_user}
-        return response, HTTPStatus.CREATED
+# @auth_bp.route("/")
+# def home():
+#     return render_template("index.html")
 
 
-@auth_ns.route("/login")
-class UserLogin(Resource):
-    @limiter.exempt
-    @auth_ns.expect(user_model)
-    @auth_ns.marshal_with(user_resp_logged_model)
-    @auth_ns.doc(description="User Login: Generates JWT Tokens")
-    def post(self):
-        """Login a User: Generates JWT Tokens"""
-        data = auth_ns.payload
-        email = data.get("email")
-        password = data.get("password")
+@limiter.limit("10/minute")
+@auth_bp.route("/signup", methods=["GET", "POST"])
+def signup():
+    """Sign up a User"""
 
-        user = User.query.filter_by(email=email).first()
-        if not (user and user.check_pwd_hash(password)):
-            abort(
-                HTTPStatus.UNAUTHORIZED,
-                message="Invalid email or password. Pleaase try again.",
+    form = SignupForm()
+    if request.method == "POST" and form.validate_on_submit:
+        if form.validate_email() and form.is_valid_email():
+            new_user = User(
+                email=form.email.data,
+                password_hash=generate_password_hash(form.password.data),
             )
+            new_user.save_to_db()
+            flash(f"User with email: '{new_user.email}' created successfully!")
+            return redirect(url_for("auth.login")), 201
 
-        access_token = create_access_token(identity=user.email)
-        refresh_token = create_refresh_token(identity=user.email)
-
-        message = f"User '{user.username}' logged in successfully."
-        response = {
-            "message": message,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "data": user,
-        }
-        return response, HTTPStatus.CREATED
+    context = dict(title="Sign Up Page", form=form)
+    return render_template("signup.html", **context), 200
 
 
-@auth_ns.route("/refresh")
-class TokenRefresh(Resource):
-    @cache.cached(timeout=10)
-    @auth_ns.doc(description="Refresh JWT Access Token")
-    @jwt_required(refresh=True)
-    def post(self):
-        """Refresh JWT Access Token"""
-        identity = get_jwt_identity()
-        access_token = create_access_token(identity=identity)
+@auth_bp.route("/login", methods=["GET", "POST"])
+def login():
+    """Login a User: Generates JWT Tokens"""
 
-        message = f"Refresh successful."
-        response = {
-            "message": message,
-            "access_token": access_token,
-        }
-        return response, HTTPStatus.OK
+    form = LoginForm()
+    if request.methods == "POST" and form.validate_on_submit():
+        user = form.get_user()
+        if user:
+            login_user(user)
+        else:
+            flash("User not found. Please sign up.")
+            return redirect(url_for("auth.login")), 404
+
+    if current_user.is_authenticated:
+        return redirect(url_for(".index", user=user)), 200
+
+    context = dict(title="Login Page", form=form)
+    return render_template("login.html", **context), 200
 
 
-@auth_ns.route("/logout")
-class UserLogout(Resource):
-    @limiter.exempt
-    @auth_ns.doc(description="Logout: Block JWT Token")
-    @jwt_required()
-    def post(self):
-        """Logout a User: Block Access Token"""
-        token = get_jwt()
-        jti = token["jti"]
-        BLOCKLIST.add(jti)
+# @auth_ns.route("/refresh")
+# class TokenRefresh(Resource):
+#     @cache.cached(timeout=10)
+#     @auth_ns.doc(description="Refresh JWT Access Token")
+#     @jwt_required(refresh=True)
+#     def post(self):
+#         """Refresh JWT Access Token"""
+#         identity = get_jwt_identity()
+#         access_token = create_access_token(identity=identity)
 
-        return {"message": "Logged Out Successfully!"}
+#         message = f"Refresh successful."
+#         response = {
+#             "message": message,
+#             "access_token": access_token,
+#         }
+#         return response, HTTPStatus.OK
+
+
+# @auth_ns.route("/logout")
+# class UserLogout(Resource):
+#     @limiter.exempt
+#     @auth_ns.doc(description="Logout: Block JWT Token")
+#     @jwt_required()
+#     def post(self):
+#         """Logout a User: Block Access Token"""
+#         token = get_jwt()
+#         jti = token["jti"]
+#         BLOCKLIST.add(jti)
+
+#         return {"message": "Logged Out Successfully!"}

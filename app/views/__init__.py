@@ -1,11 +1,7 @@
-from flask_restx import Namespace
+from flask import Blueprint
 
-auth_ns = Namespace(name="Auth Namespace", description="Authentication Operations")
+auth_bp = Blueprint("auth", __name__, template_folder="templates")
 
-user_ns = Namespace(name="User Namespace", description="User Operations")
+users_bp = Blueprint("users", __name__, template_folder="templates")
 
-links_ns = Namespace(name="Links Namespace", description="Operations on Links")
-
-admin_users_ns = Namespace(name="Admin Namespace for Users", description="Operation on Users by Admin")
-
-admin_links_ns = Namespace(name="Admin Namespace for Links", description="Operations on Links by Admin")
+links_bp = Blueprint("links", __name__, template_folder="templates")

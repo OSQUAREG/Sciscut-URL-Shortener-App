@@ -1,5 +1,4 @@
 import os
-import re
 from datetime import timedelta
 from decouple import config
 
@@ -18,7 +17,7 @@ class Config:
 
 class DevelopmentConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(base_dir, "urls.db")
-    DEBUG = True
+    DEBUG = config("FLASK_DEBUG")
 
 
 class TestingConfig(Config):
@@ -29,7 +28,7 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = config("DATABASE_URL")
-    DEBUG = config("DEBUG", False, cast=bool)
+    DEBUG = config("FLASK_DEBUG", False, cast=bool)
     SQLALCHEMY_ECHO = False
 
 
